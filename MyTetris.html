@@ -1,0 +1,293 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<title>俄罗斯方块</title>
+		<style type="text/css">
+			 body{width:520px;padding:20px;background:#CCCCCC;margin:0 auto;}
+			 table{border-collapse:collapse;border:1px solid black;background:#eee;}
+			 td{width:30px;height:30px;border:1px dotted #00CCCC;}
+			 table#gameBoard{float:left;}
+			 table#gamePreview{float:right;}
+			 div#gameControl{float:right;width:120px;margin-top:20px;}
+			 div#banner{float: right; width: 160px; height: 150px; padding-top:30px;}
+		</style>
+		<script type="text/javascript">
+			var T = TETRIS = {//命名空间
+				iScore : 0, //游戏得分
+				aBoardGrids : null, //游戏面板网格数组, 用来标注那些方格已经被占据. 初始时都为 0, 如果被占据则为 1
+				aPreviewGrids : null, //预览面板网格数组
+				aShapes : [[0xCC00], [0x8888, 0xF0], [0x8C40, 0x6C00], [0x4C80, 0xC600], [0x44C0, 0x8E00, 0xC880, 0xE200], [0x88C0, 0xE800, 0xC440, 0x2E00], [0x4E00, 0x8C80, 0xE400, 0x4C40]], //方块形状点阵数组
+				//aShapeColors : ['#9F0', '#FF3', '#F33', '#C0C', '#33C', '#0F3', '#F93'], //方块颜色数组
+
+				init : function() {
+					T.oDomBoard = document.getElementById('gameBoard');
+					this.aBoardGrids = new Array(18); //初始化一维数组，代表面板中共有18行
+					for (var rows = 0; rows < 18; rows++) {//初始化游戏面板网格
+						var oTr = T.oDomBoard.insertRow(-1);
+						this.aBoardGrids[rows] = new Array(10);//初始化二维数组，代表面板中共有10列
+						for (var cols = 0; cols < 10; cols++) {
+							oTr.insertCell(cols);
+							this.aBoardGrids[rows][cols] = 0;
+						}
+					}
+
+					/*var oDomPreview = document.getElementById('gamePreview');
+					this.aPreviewGrids = new Array(5);
+					for (var rows = 0; rows < 5; rows++) {//初始化预览面板网格
+						var oTr = oDomPreview.insertRow(-1);
+						this.aPreviewGrids[rows] = new Array(5);
+						for (var cols = 0; cols < 5; cols++) {
+							oTr.insertCell(cols);
+							this.aPreviewGrids[rows][cols] = 0;
+						}
+					}*/
+					
+					document.onkeydown = function(e){
+						e = e || window.event;
+						var iKeyNum = e.which || e.keyCode;
+						switch(iKeyNum){
+							case 37:
+								T.oBlock.move("left");
+								break;
+							case 38:
+								T.oBlock.rotate((function(){
+									T.iBlockShape = ((!T.iBlockShape?0:T.iBlockShape) + 1) % T.aShapes[T.iShapeIdx].length;
+									var vShape = T.aShapes[T.iShapeIdx][T.iBlockShape].toString(2); //将随机产生的形状转换为二进制数
+									vShape = new Array(17 - vShape.length).join(0) + vShape;//如果转换后的二进制数不够16位，补全
+									var matrix = vShape.match(/\d{4}/g);//搜索上面产生的16位数，每4位一组, matrix：矩阵
+									return matrix;
+								})());
+								break;
+							case 39:
+								T.oBlock.move("right");
+								break;
+							case 40:
+								T.oBlock.move("down");
+								break;
+						}
+					};
+					
+					this.next();//初始化后，生成一个方块
+				},
+				next : function(){
+					//var sColor = this.aShapeColors[parseInt(Math.random() * this.aShapeColors.length)];//随机产生形状的颜色
+					T.iShapeIdx = parseInt(Math.random() * this.aShapes.length);//随机产生在aShapes中方块的形状索引
+			
+					var vShape = this.aShapes[T.iShapeIdx][0].toString(2); //随机产生aShapes中的一个形状,并转换为二进制数
+					vShape = new Array(17 - vShape.length).join(0) + vShape;//如果转换后的二进制数不够16位，补全
+					var matrix = vShape.match(/\d{4}/g);//搜索上面产生的16位数，每4位一组, matrix：矩阵
+
+					T.oBlock = new TETRIS.Block(matrix);//创建方块类对象
+					T.oBlock.draw();//显示方块
+					
+					clearInterval(T.timer);//清除上一个方块的定时器
+					T.timer = setInterval(function(){//为当前方块注册定时器
+						T.oBlock.move("down");
+					}, 1000);//计时器
+					
+					if(!this.checkBlock(T.oBlock.shape)){//检查是否已到达游戏面板上边界，如果是，则游戏结束
+						clearInterval(T.timer);
+						alert("Game over!");
+					}
+				},
+				checkBlock: function(shape, direction){//检查坐标为(x,y)的是否在board中已经存在, 存在说明这个方格不合法.
+					for(var i=0; i<4; i++){
+						if(direction == "left") {
+							if(shape[i].x == 0 || this.aBoardGrids[shape[i].y][shape[i].x - 1] == 1){
+								return false;
+							}
+						}else if(direction == "right") {
+							if(shape[i].x == 9 || this.aBoardGrids[shape[i].y][shape[i].x + 1] == 1){
+								return false;
+							}
+						}else if(direction == "down") {
+							if(shape[i].y == 17 || this.aBoardGrids[shape[i].y + 1][shape[i].x] == 1){
+								return false;
+							}
+						}	
+						if(shape[i].y < 0 || shape[i].y > 17 || shape[i].x < 0 || shape[i].x > 9){
+							return false;
+						}
+						if(this.aBoardGrids[shape[i].y][shape[i].x] == 1) {
+							return false;
+						}
+					}
+					return true;
+				},
+				updateBoard: function(shape){
+					for(var i=0; i<4; i++){
+						this.aBoardGrids[shape[i].y][shape[i].x] = 1;
+					}
+				},
+				eraseLines: function(){//消行
+					var lines = 0;  //统计已堆满的行数
+					//遍历整个面板，看是否有符合条件的行
+					for(var i = 0; i < 18; i++){
+						var j = 0;  //变量j循环外要使用，统计被占的列数
+						for(; j < 10; j++){
+							if(this.aBoardGrids[i][j] == 0){ //行内有空格，跳出循环
+								break;
+							}
+						}
+						
+						if(j == 10){ //整行无空格
+						 	lines++; //累加已堆满的行数
+							if(i != 0){ //判断是否还可以继续进行游戏，在这里把第0行全行非空的情况当作游戏不能再进行了
+								//消行，就是抽走一行，那么这行上面的所有行都要进行递换，即向下移动循环的遍历次数是当前行数-1
+								for(var k = i - 1; k >= 0 ; k--){
+									this.aBoardGrids[k+1] = this.aBoardGrids[k];
+								}
+			                    this.aBoardGrids[0] = this._createBlankLine();	//这里替换完行后，比原来少了一行，所以要在面板的头部加上一个空行
+							}
+						}
+					}
+					return lines;
+				},
+				_createBlankLine: function(){
+					var aBlankLine = new Array(10);
+					for(var i = 0; i < 10; i++){
+						aBlankLine[i] = 0;
+					}
+					return aBlankLine;
+				},
+				//擦除整个面板
+				eraseBoard: function () {
+					T.aCellColors = [];//保存有颜色的表格，将来重绘的时候，根据这些表格的颜色重新显示
+					for(var i = 0; i < 18; i++) {
+						for(var j = 0; j < 10; j++) {
+							/*if(this.aBoardGrids[i][j] == 1){
+								T.aCellColors.push({cell:T.oDomBoard.rows[i].cells[j], cellColor:T.oDomBoard.rows[i].cells[j].style.backgroundColor});
+							}*/
+							T.oDomBoard.rows[i].cells[j].style.backgroundColor = "#eee";
+						}
+					}
+				},
+				//重绘整个面板
+				paintBoard: function (){
+					for(var i = 0; i < 18; i++) {
+						for(var j = 0; j < 10; j++) {
+							/*for(var k=0; k<T.aCellColors.length; k++){
+								var oCell = T.aCellColors[k];
+								if(oCell.cell.cellIndex == j && oCell.cell.parentNode.rowIndex == i && this.aBoardGrids[i][j] == 1){
+									T.oDomBoard.rows[i].cells[j].style.backgroundColor = oCell.cellColor;
+								} 
+							}*/
+							if(this.aBoardGrids[i][j] == 1){
+								T.oDomBoard.rows[i].cells[j].style.backgroundColor = "#D64A4A";
+							} 
+						}
+					}
+				},
+				updateScore: function(iLines){
+					T.iScore = T.iScore + iLines * 10;
+					document.getElementById("score").innerHTML = T.iScore;
+				}
+			};
+
+			TETRIS.Block = function(matrix){
+				this.shape = (function(matrix){
+					//返回这样的格式：[{x:5, y:0}, {x:4, y:1}, {x:5, y:1}, {x:4, y:2}]
+					var aShape = [];
+					for(var i=0; i<matrix.length; i++){
+						var sValue = matrix[i];
+						for(var j=0; j<sValue.length; j++){
+							if(sValue.charAt(j) == "1"){
+								aShape.push({x:j+3, y:i});
+							}
+						}
+					}
+					return aShape;
+				})(matrix);
+				//this.color = oShape.color;
+				//this.moving = true;//是否移动，触底会moving=false;
+			};
+			
+			TETRIS.Block.prototype.move = function(direction){
+				if(T.checkBlock(this.shape, direction)){//检测边界
+					this.draw("erase");//先擦除自己
+					for(var i=0; i<4; i++){
+						switch(direction){
+							case "left":
+								this.shape[i].x -= 1;
+								break;
+							case "right":
+								this.shape[i].x += 1;
+								break;
+							case "down":
+								this.shape[i].y += 1;
+								break;
+						}
+					}
+					this.draw();//重绘自己
+				}else{
+					if(direction == "down"){
+						clearInterval(T.timer);
+						T.updateBoard(this.shape);
+						var iLines = T.eraseLines();
+						if(iLines != 0){
+							T.eraseBoard();//擦除整个面板
+							T.paintBoard();//重绘面板
+							T.updateScore(iLines);
+						}
+						T.next();
+					}
+				}
+				
+			};
+			
+			TETRIS.Block.prototype.rotate = function(matrix){
+				var me = this;
+				this.shape = (function(matrix, shape){
+					var aShape = [];
+					var iMinX = shape[0].x, iMinY = shape[0].y;
+					for(var i=1; i<4; i++){//找出当前形状中x与y坐标的最小值，然后构成一个以该最小坐标为(0,0)点的4*4的坐标系
+						iMinX = shape[i].x<iMinX?shape[i].x:iMinX;
+						iMinY = shape[i].y<iMinY?shape[i].y:iMinY;
+					}
+					for(var i=0; i<4; i++){
+						var sValue = matrix[i];
+						for(var j=0; j<4; j++){
+							if(sValue.charAt(j) == "1"){
+								aShape.push({x:j+iMinX, y:i+iMinY});
+							}
+						}
+					}
+					if(!T.checkBlock(aShape)){//判断是否可以变形
+						return shape;
+					}
+					me.draw("erase");
+					return aShape;
+				})(matrix, this.shape);
+				this.draw();
+			};
+			
+			TETRIS.Block.prototype.draw = function(opt){
+				for(var i = 0; i < 4; i++) {
+					T.oDomBoard.rows[this.shape[i].y].cells[this.shape[i].x].style.backgroundColor = opt?"#eee":"#D64A4A";
+				}
+			};
+						
+			window.onload = function() {
+				T.init();
+				document.getElementById("btnPlay").onclick = function() {
+					alert("Game start!");
+				};
+			};
+		</script>
+	</head>
+
+	<body>
+		<table id="gameBoard"></table>
+		<!--table id="gamePreview"></table-->
+		<div id="gameControl">
+			<span id="gameScore"> Score: <span id="score"> 0</span> </span>
+			<div id="buttons">
+				<input type="button" value="begin" id="btnPlay"/>
+			</div>
+		</div>
+		<div id="banner">
+			俄罗斯方块
+		</div>
+	</body>
+</html>
